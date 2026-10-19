@@ -1,0 +1,16 @@
+# Secrets and local database configuration
+.env
+.env.*
+!.env.example
+api/config.php
+/package-lock.json
+
+# Dependencies and generated output
+**/node_modules/
+fonte/dist/
+fonte/.netlify/
+.netlify/
+
+# Local tooling
+.vscode/
+.DS_Store

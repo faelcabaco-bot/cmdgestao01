@@ -1,0 +1,63 @@
+CMD GESTÃO — SaaS multiempresa
+
+Cada cadastro cria uma empresa separada e seu primeiro usuário Administrador. O servidor
+limita dados e operações à empresa da sessão. Funcionários são cadastrados pelo
+administrador em Usuários. O sistema ainda não tem pagamentos/planos, convites por e-mail
+ou suporte a filiais.
+
+HOSPEDAR NA NETLIFY (frontend + Functions + Postgres)
+
+1) Envie o projeto para um repositório Git e conecte esse repositório à Netlify.
+   netlify.toml já define:
+   - diretório de build: fonte
+   - comando: npm ci && npm run build
+   - publicação: fonte/dist
+   - Function: fonte/netlify/functions/api.mts, acessível em /api/index.php
+
+2) No site Netlify, habilite/crie o Netlify Database em Data & Storage > Database.
+   Confirme que NETLIFY_DB_URL está disponível para as Functions. As migrações SQL da
+   pasta fonte/netlify/database/migrations devem ser aplicadas em ordem. A migração
+   20261019_0002_multitenant.sql atualiza bancos criados pela versão anterior e preserva
+   seus registros na empresa inicial "CMD Cosméticos". Em produção, confira o log de
+   deploy/migração e verifique que a tabela tenants e as colunas tenant_id foram criadas
+   antes de abrir o cadastro para os clientes.
+
+3) Em Site configuration > Environment variables, configure para Functions:
+   NETLIFY_SESSION_SECRET  segredo aleatório forte de pelo menos 32 caracteres
+   APP_URL                 URL HTTPS final do site (inclua domínio personalizado, se houver)
+   MAIL_FROM               remetente verificado para e-mail de recuperação
+   RESEND_API_KEY          chave do Resend para recuperação de senha
+   NETLIFY_DB_URL          fornecida pela integração do banco
+   Não publique esses valores no Git nem os coloque no código do frontend.
+
+4) Faça deploy e teste em uma URL de prévia primeiro:
+   - cadastrar duas empresas com e-mails diferentes;
+   - criar produtos/clientes em cada empresa e confirmar que não se cruzam;
+   - criar funcionário em cada empresa e verificar login;
+   - validar PDV, caixa, estoque, fiado, cancelamento e recuperação de senha.
+   Só depois aponte seu domínio e divulgue o cadastro.
+
+5) Para domínio próprio: adicione-o em Domain management na Netlify, configure os registros
+   DNS indicados pela plataforma e aguarde a emissão do certificado HTTPS. Atualize APP_URL
+   para o domínio HTTPS e faça novo deploy.
+
+MIGRAR MYSQL EXISTENTE PARA NETLIFY
+
+Faça backup do MySQL. Aplique migracao-fiado.sql se necessário e depois
+migracao-multicliente.sql (uma única vez) no MySQL antigo. A migração atribui os dados atuais
+à empresa inicial "CMD Cosméticos". Configure temporariamente as variáveis
+MYSQL_HOST, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD e NETLIFY_DB_URL no seu computador e
+rode:
+   node .\scripts\migrate-mysql-to-netlify.mjs
+O importador cancela se encontrar dados que não sejam apenas a configuração inicial no
+destino, e desfaz a transação se houver erro. Não coloque credenciais no repositório.
+
+HOSPEDAGEM ALTERNATIVA PHP + MYSQL
+
+O backend PHP continua disponível. Exige hospedagem PHP 8.1+ com MySQL/MariaDB:
+1) Rode npm ci e npm run build dentro de fonte.
+2) Para banco novo, importe banco.sql. Para banco antigo, faça backup e execute
+   migracao-fiado.sql (se necessário) e migracao-multicliente.sql, nessa ordem.
+3) Copie api/config.example.php para api/config.php e configure os dados da hospedagem.
+4) Envie o conteúdo de fonte/dist e a pasta api para public_html.
+Consulte api/config.example.php e mantenha api/config.php fora do Git.
